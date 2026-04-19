@@ -61,8 +61,9 @@ Whether you're hunting for rare 3‑letter handles or testing thousands of patte
 | | Status Updates | Optional start/finish notifications. |
 | 💾 **Output** | Auto‑Save | All hits are automatically appended to a text file. |
 | | Download Link | At the end of the session, download the file directly from Colab. |
-| 🛡️ **Safety** | Expiration Option | Set an expiration date for the script (useful for sharing). |
-| | Pattern Filters | Avoid usernames starting/ending with dots, underscores, or numbers. |
+| 🎯 **Stop Conditions** | Hit Limit | Stop automatically after finding a desired number of available usernames. |
+| | Attempt Limit | Stop after checking a fixed number of usernames. |
+| 🛡️ **Safety** | Pattern Filters | Avoid usernames starting/ending with dots, underscores, or numbers. |
 
 ---
 
@@ -77,7 +78,7 @@ Whether you're hunting for rare 3‑letter handles or testing thousands of patte
    - If `"feedback_required"` appears → rate‑limited (retry with proxy/delay).  
    - Otherwise → **available**.
 4. **Notification & Save** – Available usernames trigger a Telegram message and are saved to `available_usernames.txt`.
-5. **Loop** – The process continues until you stop it or the maximum attempt count is reached.
+5. **Loop** – The process continues until a stop condition is met (manual interruption, attempt limit, or hit limit).
 
 ---
 
@@ -124,7 +125,7 @@ Your **Chat ID** is the unique identifier for your Telegram account.
    - Choose your desired settings (username length, character set, etc.).
 4. **Run the second cell**.
 5. Check your Telegram – available usernames will appear as they are found.
-6. When you stop the script, a download link for `available_usernames.txt` will appear.
+6. When the script stops (or you interrupt it), a download link for `available_usernames.txt` will appear.
 
 ---
 
@@ -142,6 +143,7 @@ AVOID_START_DOT = True
 AVOID_END_DOT = True
 MODE = "continuous"   # Runs forever until stopped
 # or MODE = "count" + MAX_ATTEMPTS = 1000
+# or MODE = "hits" + STOP_AFTER_HITS = 10
 ```
 
 ### 📁 Custom Wordlist Mode
@@ -174,8 +176,9 @@ The wordlist should be a plain text file with one username per line.
 | `AVOID_START_UNDERSCORE` | Prevent starting with `_` | `False` |
 | `AVOID_END_UNDERSCORE` | Prevent ending with `_` | `False` |
 | `AVOID_START_NUMBER` | Prevent starting with a digit | `False` |
-| `MODE` | `"continuous"` (run forever) or `"count"` | `"continuous"` |
+| `MODE` | `"continuous"` (run forever), `"count"` (stop after X checks), or `"hits"` (stop after X hits) | `"continuous"` |
 | `MAX_ATTEMPTS` | Max checks when `MODE = "count"` | `1000` |
+| `STOP_AFTER_HITS` | Stop when this many available usernames are found (used with `MODE = "hits"`) | `10` |
 | `USE_CUSTOM_WORDLIST` | Enable custom wordlist | `False` |
 | `WORDLIST_URL` | URL to wordlist (optional) | `""` |
 
@@ -195,8 +198,6 @@ The wordlist should be a plain text file with one username per line.
 |-----------|-------------|---------|
 | `SAVE_AVAILABLE_TO_FILE` | Save hits to a text file | `True` |
 | `OUTPUT_FILENAME` | Name of the output file | `"available_usernames.txt"` |
-| `ENABLE_EXPIRATION` | Set an expiration date for the script | `False` |
-| `EXPIRATION_DATE` | Date in `YYYY-MM-DD` format | `"2099-01-01"` |
 
 ---
 
@@ -229,7 +230,7 @@ Set `USE_PROXY_LIST = True` and paste the URL into `PROXY_LIST_URL`.
 | **Rate limited immediately** | Increase `DELAY_BETWEEN_REQUESTS` and reduce `MAX_WORKERS`. Use proxies. |
 | **Telegram messages not arriving** | Double‑check the bot token and chat ID. Ensure you've started a chat with the bot. |
 | **Wordlist upload not working** | Make sure you run the cell and select a file when prompted. File must be `.txt`. |
-| **Script stops unexpectedly** | If using `MODE = "count"`, it will stop after `MAX_ATTEMPTS`. For continuous, it runs until you interrupt it (press stop button in Colab). |
+| **Script stops unexpectedly** | If using `MODE = "count"` or `MODE = "hits"`, it will stop after reaching the limit. For continuous, it runs until you interrupt it (press stop button in Colab). |
 
 ---
 
@@ -250,6 +251,9 @@ Set `USE_PROXY_LIST = True` and paste the URL into `PROXY_LIST_URL`.
 ### Q: Does this work for Instagram's new "username" vs "handle" system?
 **A:** Yes. The endpoint used (`/accounts/web_create_ajax/attempt/`) is the same one Instagram uses during signup to validate handle availability.
 
+### Q: How do I stop after finding a certain number of available usernames?
+**A:** Set `MODE = "hits"` and enter the desired number in `STOP_AFTER_HITS`. The script will terminate automatically once that many hits are collected.
+
 ---
 
 ## 📄 License & Disclaimer
@@ -262,10 +266,10 @@ This project is licensed under the **MIT License**.
 
 ## 💕 Credits & Acknowledgments
 
-- [requests](https://docs.python-requests.org/) – elegant HTTP library.
+- [Requests](https://docs.python-requests.org/) – elegant HTTP library.
 - [Google Colab](https://colab.research.google.com/) – free cloud runtime.
 - [Telegram Bot API](https://core.telegram.org/bots/api) – simple messaging.
-- Original script concept by [Maxim_ffx](https://telegram.me/Maxim_ffx).
+- Original Script Concept By [Shinei Nouzen](https://telegram.me/Shineii86).
 
 ---
 
