@@ -1,10 +1,11 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=8B5CF6,06B6D4&height=200&section=header&text=Instagram%20Bot&fontSize=70&fontColor=ffffff&animation=fadeIn&fontAlignY=35&desc=Instagram%20Username%20Checker%20v2.0&descSize=20" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=8B5CF6,06B6D4&height=200&section=header&text=Instagram%20Bot&fontSize=70&fontColor=ffffff&animation=fadeIn&fontAlignY=35&desc=Instagram%20Username%20Checker%20v3.0&descSize=20" />
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Shineii86/InstaUserCheckBot/blob/main/notebooks/InstaUserCheckBot.ipynb)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/Version-3.0-blue.svg)](https://github.com/Shineii86/InstaUserCheckBot/releases)
 
 [![GitHub Stars](https://img.shields.io/github/stars/Shineii86/InstaUserCheckBot?style=for-the-badge)](https://github.com/Shineii86/InstaUserCheckBot/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/Shineii86/InstaUserCheckBot?style=for-the-badge)](https://github.com/Shineii86/InstaUserCheckBot/fork)
@@ -50,18 +51,44 @@
 | Category | Feature | Description |
 |----------|---------|-------------|
 | 🔍 **Modes** | Single Check | Check one username via `/check` or CLI |
-| | Batch Check | Check multiple via `/batch` or `--wordlist` |
+| | Batch Check | Check multiple via `/batch` or `--wordlist` (max 200) |
 | | Random Generation | Generate & check via `/generate` or CLI |
-| 🚀 **Performance** | Multi-threading | Configurable worker count |
+| | Pattern Templates | Generate from patterns via `/pattern` |
+| | Word Combos | Adjective + noun + number names |
+| 🧬 **Generation** | Random | Pure random character usernames |
+| | Word Combos | `fastcoder42`, `coolhacker`, `wildwolf7` |
+| | Mixed | Round-robin across strategies for variety |
+| | Pattern Templates | `user_????`, `test_##`, `my_!_!_name` |
+| | Smart Dedup | Never checks the same username twice |
+| 🚀 **Performance** | Multi-threading | Configurable worker count (1–10) |
 | | Proxy Rotation | HTTP/HTTPS/SOCKS from file or URL |
 | | CSRF Session Reuse | Single session with 5-min token refresh |
 | | UA Rotation | Rotates across 6 browser fingerprints |
+| | Retry Logic | Exponential backoff on rate limits (3 retries) |
+| | Auto Delay | Automatically increases delay when rate limited |
 | 📲 **Telegram** | Interactive Bot | Full inline keyboard UI |
-| | Instant Alerts | Hit notifications with stats |
-| | Settings Panel | Change length, chars, delay in-chat |
+| | Inline Query | Check from any chat with `@botname username` |
+| | Rich Hit Alerts | Notifications with Open/Stop buttons |
+| | Progress Updates | Speed tracking during batch & generate |
+| | Settings Panel | Change length, chars, delay, gen mode in-chat |
+| | Quick Check | Just type a username — no command needed! |
+| | Check History | View recent checks with `/history` |
+| | Bot Status | Check uptime & responsiveness with `/ping` |
+| | About Page | Bot info & credits via `/about` |
+| | Retry on Error | One-tap retry for failed checks |
+| | Copy to Clipboard | Quick-copy available usernames |
+| | Time-Aware Greeting | Welcome message adapts to time of day |
+| 🌐 **Web App** | Full Mini App | 7-page app with batch, generate, pattern, settings |
+| | Haptic Feedback | Native Telegram haptics on all interactions |
+| | CloudStorage | Settings persist across sessions |
+| 📓 **Colab** | One-Click Bot | Launch Telegram bot directly from notebook |
+| | Textarea Input | Multi-line username input with Run button |
+| | Config Sliders | Sliders, dropdowns, and toggles for all settings |
 | 💾 **Output** | Auto-Save | Hits saved to file in real-time |
+| | Export Hits | Export all available names from any session |
 | 🛡️ **Safety** | Thread-Safe Stats | Locked counters, proper stop conditions |
 | | Rate Limit Detection | Counted separately, not silently skipped |
+| | Batch Limits | Max 200 per batch to prevent abuse |
 
 ---
 
@@ -111,21 +138,28 @@ Click the **Open in Colab** badge at the top. Run both cells. Done.
 
 ## 🤖 Bot Commands
 
-| Command | Description |
-|---------|-------------|
-| `/start` | Welcome message with quick-action buttons |
-| `/help` | Show all commands |
-| `/check username` | Check a single username |
-| `/batch user1,user2,user3` | Check multiple (comma-separated) |
-| `/generate` | Generate & check 20 random usernames |
-| `/generate 50` | Generate & check N random usernames |
-| `/settings` | View/change length, chars, delay, workers |
-| `/stats` | Show session statistics |
-| `/stop` | Stop current batch/generation |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `/start` | Welcome screen with quick-action buttons | `/start` |
+| `/help` | Show all commands, rules & pattern syntax | `/help` |
+| `/check username` | Check a single username | `/check coolname123` |
+| `/batch user1,user2,user3` | Check multiple (comma/space/newline) | `/batch abc,xyz,test` |
+| `/generate` | Generate & check 20 random usernames | `/generate` |
+| `/generate 50` | Generate & check N random usernames | `/generate 50` |
+| `/generate 50 word_combo` | Generate with word combos | `/generate 50 word_combo` |
+| `/pattern template` | Generate from pattern template | `/pattern user_????` |
+| `/pattern tmpl 50` | Pattern with custom count | `/pattern test_## 50` |
+| `/settings` | View/change length, chars, delay, gen mode | `/settings` |
+| `/stats` | Show session statistics with hit rate | `/stats` |
+| `/history` | View recent check log with timestamps | `/history` |
+| `/ping` | Check bot uptime & responsiveness | `/ping` |
+| `/about` | Bot info, version, and credits | `/about` |
+| `/stop` | Stop current batch/generation | `/stop` |
+| `@botname username` | Inline query — check from any chat | `@mybot coolname123` |
 
-**Quick check:** Just type a username as a message (no command needed) — the bot checks it instantly.
+**💡 Quick check:** Just type a username as a message (no command needed) — the bot checks it instantly.
 
-**Inline keyboard:** Settings, stats, and help all have interactive button menus.
+**🔍 Inline query:** Use `@botname username` in any chat to check availability without opening the bot.
 
 ---
 
@@ -212,18 +246,21 @@ InstaUserCheckBot/
 ├── run_bot.py              # Telegram bot entry point
 ├── requirements.txt
 ├── README.md
+├── CHANGELOG.md
 ├── LICENSE
 ├── checker/                # Core checking engine
 │   ├── __init__.py
 │   ├── config.py           # Configuration dataclass
-│   ├── instagram.py        # Instagram API (CSRF, session, UA rotation)
+│   ├── instagram.py        # Instagram API (CSRF, session, UA rotation, retries)
 │   ├── telegram.py         # Telegram notification helper (for CLI mode)
-│   ├── generator.py        # Username generation + wordlist loading
+│   ├── generator.py        # Username generation (random, word combo, pattern, mixed)
 │   ├── proxy.py            # Proxy manager
 │   └── core.py             # CLI orchestrator (threading, stats)
 ├── bot/                    # Telegram bot interface
 │   ├── __init__.py
-│   └── handlers.py         # All /commands, callbacks, settings UI
+│   └── handlers.py         # All /commands, callbacks, inline queries, settings UI
+├── webapp/                 # Telegram Web App (Mini App)
+│   └── index.html          # Full page-based mini app
 └── notebooks/
     └── InstaUserCheckBot.ipynb  # Colab notebook
 ```
@@ -258,10 +295,32 @@ Bot: Configure via environment variables before starting.
 2. It replies with your ID — that's your `TELEGRAM_CHAT_ID`
 
 ### How many usernames per hour?
-~72,000 theoretical (10 threads, 0.5s delay). Rate limits reduce this without proxies.
+~72,000 theoretical (10 threads, 0.5s delay). Rate limits reduce this without proxies. The bot now has automatic retry with exponential backoff.
 
 ### Can I run both CLI and bot?
 Yes! They're independent. CLI sends alerts to your Telegram chat. Bot runs as a Telegram bot.
+
+### What are pattern templates?
+Patterns let you generate usernames from a template. Use special characters as placeholders:
+- `?` = random letter, `#` = random digit, `!` = letter or digit
+- Example: `/pattern user_????` generates `user_abcd`, `user_wxyz`, etc.
+- Example: `/pattern pro_####` generates `pro_1234`, `pro_5678`, etc.
+
+### What's the difference between generation modes?
+- **Random** — Pure random characters. Fast but names are hard to remember.
+- **Word Combos** — Adjective + noun + number. Produces pronounceable names like `coolhacker` or `wildwolf7`.
+- **Mixed** — Combines both strategies for variety.
+- Use `/settings` → Gen Mode to switch, or `--gen-mode word_combo` in CLI.
+
+### What's new in v3.0?
+- **Pattern templates:** `/pattern user_????` — generate from custom patterns
+- **Word combos:** `/generate 50 word_combo` — memorable names like `coolcoder42`
+- **Inline query:** Check from any chat with `@botname username`
+- **Web App:** Full mini app with batch, generate, pattern, settings
+- **Retry logic:** Exponential backoff on rate limits
+- **Rich notifications:** Hit alerts with Open/Copy/Retry buttons
+- **History & ping:** `/history` and `/ping` commands
+- See [CHANGELOG.md](CHANGELOG.md) for full details
 
 ---
 

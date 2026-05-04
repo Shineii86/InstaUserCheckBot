@@ -20,6 +20,9 @@ class Config:
     # Username generation
     username_length: int = 5
     character_set: str = "1234567890qwertyuiopasdfghjklzxcvbnm._"
+    generation_mode: str = "random"  # random, word_combo, mixed
+    use_pattern: bool = False
+    pattern: str = ""
     avoid_start_dot: bool = True
     avoid_end_dot: bool = True
     avoid_start_underscore: bool = False
@@ -39,6 +42,9 @@ class Config:
     # Performance
     max_workers: int = 10
     delay: float = 0.5
+    max_retries: int = 3
+    retry_backoff_base: float = 2.0
+    auto_adjust_delay: bool = True
     use_proxies: bool = False
     proxy_file: str = ""
     proxy_url: str = ""
@@ -46,6 +52,11 @@ class Config:
     # Output
     save_hits: bool = True
     output_file: str = "available_usernames.txt"
+
+    # Notifications
+    notify_on_hit: bool = True
+    notify_on_finish: bool = True
+    notify_progress_interval: int = 50
 
     # User-Agent rotation
     user_agents: List[str] = field(default_factory=lambda: [
@@ -65,6 +76,9 @@ class Config:
             telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
             username_length=int(os.getenv("USERNAME_LENGTH", "5")),
             character_set=os.getenv("CHARACTER_SET", "1234567890qwertyuiopasdfghjklzxcvbnm._"),
+            generation_mode=os.getenv("GENERATION_MODE", "random"),
+            use_pattern=os.getenv("USE_PATTERN", "false").lower() == "true",
+            pattern=os.getenv("PATTERN", ""),
             avoid_start_dot=os.getenv("AVOID_START_DOT", "true").lower() == "true",
             avoid_end_dot=os.getenv("AVOID_END_DOT", "true").lower() == "true",
             avoid_start_underscore=os.getenv("AVOID_START_UNDERSCORE", "false").lower() == "true",
@@ -78,11 +92,17 @@ class Config:
             stop_after_hits=int(os.getenv("STOP_AFTER_HITS", "10")),
             max_workers=int(os.getenv("MAX_WORKERS", "10")),
             delay=float(os.getenv("DELAY", "0.5")),
+            max_retries=int(os.getenv("MAX_RETRIES", "3")),
+            retry_backoff_base=float(os.getenv("RETRY_BACKOFF_BASE", "2.0")),
+            auto_adjust_delay=os.getenv("AUTO_ADJUST_DELAY", "true").lower() == "true",
             use_proxies=os.getenv("USE_PROXIES", "false").lower() == "true",
             proxy_file=os.getenv("PROXY_FILE", ""),
             proxy_url=os.getenv("PROXY_URL", ""),
             save_hits=os.getenv("SAVE_HITS", "true").lower() == "true",
             output_file=os.getenv("OUTPUT_FILE", "available_usernames.txt"),
+            notify_on_hit=os.getenv("NOTIFY_ON_HIT", "true").lower() == "true",
+            notify_on_finish=os.getenv("NOTIFY_ON_FINISH", "true").lower() == "true",
+            notify_progress_interval=int(os.getenv("NOTIFY_PROGRESS_INTERVAL", "50")),
         )
 
     @classmethod
@@ -101,6 +121,8 @@ class Config:
             errors.append("TELEGRAM_CHAT_ID is required")
         if self.mode not in ("continuous", "count", "hits"):
             errors.append(f"Invalid MODE: {self.mode}")
+        if self.generation_mode not in ("random", "word_combo", "mixed"):
+            errors.append(f"Invalid GENERATION_MODE: {self.generation_mode}")
         if self.max_workers < 1:
             errors.append("MAX_WORKERS must be >= 1")
         if self.delay < 0:
