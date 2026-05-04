@@ -39,7 +39,7 @@ THICK_DIVIDER = "━━━━━━━━━━━━━━━━━━━━━
 THIN_DIVIDER = "· · · · · · · · · · · · · ·"
 BOT_USERNAME = "InstaUserCheckBot"
 BOT_AUTHOR = "@Shineii86"
-WEBAPP_URL = "https://your-domain.com"  # ← Set your hosted webapp URL
+WEBAPP_URL = "https://shineii86.github.io/InstaUserCheckBot/webapp/index.html"
 MAX_HISTORY = 20
 START_TIME = time.time()
 
