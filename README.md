@@ -9,7 +9,7 @@
 [![GitHub Stars](https://img.shields.io/github/stars/Shineii86/InstaUserCheckBot?style=for-the-badge)](https://github.com/Shineii86/InstaUserCheckBot/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/Shineii86/InstaUserCheckBot?style=for-the-badge)](https://github.com/Shineii86/InstaUserCheckBot/fork)
 
-**The ultimate Instagram username availability checker. Mass‑check usernames with multi‑threading, proxy rotation, and Telegram alerts — run from Colab or your own machine.**
+**Check Instagram username availability at scale. CLI tool, Telegram bot, or Google Colab — your choice.**
 
 </div>
 
@@ -18,16 +18,16 @@
 ## 📖 Table of Contents
 
 - [Overview](#-overview)
-- [🆕 What's New in v2.0](#-whats-new-in-v20)
 - [✨ Features](#-features)
-- [Quick Start](#-quick-start)
+- [🚀 Quick Start](#-quick-start)
+  - [Telegram Bot](#telegram-bot)
+  - [CLI Tool](#cli-tool)
   - [Google Colab](#google-colab)
-  - [Local (CLI)](#local-cli)
-- [CLI Reference](#-cli-reference)
-- [Configuration](#-configuration)
-- [Project Structure](#-project-structure)
-- [Proxy Support](#-proxy-support)
-- [Troubleshooting](#-troubleshooting)
+- [🤖 Bot Commands](#-bot-commands)
+- [📚 CLI Reference](#-cli-reference)
+- [⚙️ Configuration](#️-configuration)
+- [📁 Project Structure](#-project-structure)
+- [🌐 Proxy Support](#-proxy-support)
 - [FAQ](#-faq)
 - [License](#-license)
 
@@ -35,24 +35,13 @@
 
 ## 🎯 Overview
 
-**InstaUserCheckBot** checks Instagram username availability at scale. It combines random generation with custom wordlists, multi‑threading for speed, proxy support to avoid rate limits, and instant Telegram notifications for every available username found.
+**InstaUserCheckBot** checks Instagram username availability at scale. Three ways to use it:
 
----
-
-## 🆕 What's New in v2.0
-
-| Area | v1.0 (Old) | v2.0 (New) |
-|------|-----------|-----------|
-| **Session** | New session + CSRF per request (2x requests) | Single session, CSRF auto-refreshes every 5 min |
-| **User-Agent** | Static Firefox UA | Rotating pool of 6 modern browsers |
-| **Email** | Hardcoded `example@gmail.com` | Random generated per request |
-| **Thread Safety** | Plain `bool` flag, unprotected list | `threading.Event` + locked `Stats` class |
-| **Rate Limits** | Skipped silently | Detected, counted, reported separately |
-| **Memory** | Futures list grows unbounded | Proper `as_completed()` draining |
-| **Local Use** | Colab-only imports crash locally | Works everywhere, Colab is optional |
-| **CLI** | None | Full `argparse` with `--config`, `--env`, flags |
-| **Structure** | Single notebook file | Modular `checker/` Python package |
-| **Retry** | No retry on errors | Proper error categorization |
+| Mode | Best For | Run It |
+|------|----------|--------|
+| 🤖 **Telegram Bot** | Personal use, phone alerts, interactive | `python run_bot.py` |
+| 💻 **CLI Tool** | Automation, scripts, batch jobs | `python main.py` |
+| 📓 **Google Colab** | Quick start, no install | Open notebook |
 
 ---
 
@@ -60,57 +49,83 @@
 
 | Category | Feature | Description |
 |----------|---------|-------------|
-| 🔍 **Modes** | Random Generation | Generate usernames with full control over length, chars, patterns. |
-| | Custom Wordlist | Upload file or provide URL to a wordlist. |
-| 🚀 **Performance** | Multi‑threading | Configurable worker count for concurrent checks. |
-| | Proxy Rotation | HTTP/HTTPS/SOCKS proxies from file or URL. |
-| | CSRF Session Reuse | Single session with 5-minute token refresh. |
-| | UA Rotation | Rotates across 6 browser fingerprints. |
-| 📲 **Telegram** | Instant Alerts | Hit notification with counter and stats. |
-| | Status Updates | Start/finish notifications. |
-| 💾 **Output** | Auto-Save | Hits appended to file in real-time. |
-| | Colab Download | Auto-download link in Colab. |
-| 🎯 **Stop** | Hit Limit | Stop after N available usernames. |
-| | Attempt Limit | Stop after N total checks. |
-| | Continuous | Run until manually stopped. |
-| 🛡️ **Safety** | Pattern Filters | Avoid dots/underscores/numbers at start/end. |
-| | Thread-Safe Stats | Locked counters for accurate reporting. |
+| 🔍 **Modes** | Single Check | Check one username via `/check` or CLI |
+| | Batch Check | Check multiple via `/batch` or `--wordlist` |
+| | Random Generation | Generate & check via `/generate` or CLI |
+| 🚀 **Performance** | Multi-threading | Configurable worker count |
+| | Proxy Rotation | HTTP/HTTPS/SOCKS from file or URL |
+| | CSRF Session Reuse | Single session with 5-min token refresh |
+| | UA Rotation | Rotates across 6 browser fingerprints |
+| 📲 **Telegram** | Interactive Bot | Full inline keyboard UI |
+| | Instant Alerts | Hit notifications with stats |
+| | Settings Panel | Change length, chars, delay in-chat |
+| 💾 **Output** | Auto-Save | Hits saved to file in real-time |
+| 🛡️ **Safety** | Thread-Safe Stats | Locked counters, proper stop conditions |
+| | Rate Limit Detection | Counted separately, not silently skipped |
 
 ---
 
 ## 🚀 Quick Start
 
-### Google Colab
-
-1. Click the **Open in Colab** badge above.
-2. Run Cell 1 (installs dependencies).
-3. Fill in your Telegram token & chat ID in Cell 2.
-4. Run Cell 2 — hits appear in Telegram as they're found.
-
-### Local (CLI)
+### Telegram Bot
 
 ```bash
-# Clone
+# Clone & install
 git clone https://github.com/Shineii86/InstaUserCheckBot.git
 cd InstaUserCheckBot
-
-# Install
 pip install -r requirements.txt
 
-# Run (interactive — prompts for token/chat-id)
+# Run the bot
+python run_bot.py --token YOUR_BOT_TOKEN
+```
+
+Or from environment:
+```bash
+export TELEGRAM_BOT_TOKEN="1234567890:ABC..."
+python run_bot.py
+```
+
+Then open your bot in Telegram and send `/start`.
+
+### CLI Tool
+
+```bash
+# Interactive (prompts for token/chat-id)
 python main.py
 
-# Run with args
-python main.py --token YOUR_TOKEN --chat-id YOUR_CHAT_ID --mode hits --stop-after 5
+# With arguments
+python main.py --token TOKEN --chat-id CHAT_ID --mode hits --stop-after 5
 
-# Run with config file
+# With config file
 python main.py --config config.json
 
-# Run from env vars
-export TELEGRAM_BOT_TOKEN="..."
-export TELEGRAM_CHAT_ID="..."
-python main.py --env
+# With wordlist
+python main.py --token TOKEN --chat-id CHAT_ID --wordlist usernames.txt
 ```
+
+### Google Colab
+
+Click the **Open in Colab** badge at the top. Run both cells. Done.
+
+---
+
+## 🤖 Bot Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Welcome message with quick-action buttons |
+| `/help` | Show all commands |
+| `/check username` | Check a single username |
+| `/batch user1,user2,user3` | Check multiple (comma-separated) |
+| `/generate` | Generate & check 20 random usernames |
+| `/generate 50` | Generate & check N random usernames |
+| `/settings` | View/change length, chars, delay, workers |
+| `/stats` | Show session statistics |
+| `/stop` | Stop current batch/generation |
+
+**Quick check:** Just type a username as a message (no command needed) — the bot checks it instantly.
+
+**Inline keyboard:** Settings, stats, and help all have interactive button menus.
 
 ---
 
@@ -181,20 +196,11 @@ Config:
 | `TELEGRAM_BOT_TOKEN` | — | Bot token from @BotFather |
 | `TELEGRAM_CHAT_ID` | — | Your Telegram user ID |
 | `USERNAME_LENGTH` | `5` | Length of generated usernames |
-| `CHARACTER_SET` | `a-z0-9._` | Characters for generation |
 | `MODE` | `continuous` | `continuous`, `count`, or `hits` |
-| `MAX_ATTEMPTS` | `100` | Max checks in `count` mode |
-| `STOP_AFTER_HITS` | `10` | Stop after N hits in `hits` mode |
 | `MAX_WORKERS` | `10` | Thread count |
 | `DELAY` | `0.5` | Seconds between requests |
 | `USE_PROXIES` | `false` | Enable proxy rotation |
-| `PROXY_FILE` | — | Path to proxy list |
-| `PROXY_URL` | — | URL to proxy list |
-| `USE_WORDLIST` | `false` | Use custom wordlist |
-| `WORDLIST_PATH` | — | Path to wordlist file |
-| `WORDLIST_URL` | — | URL to wordlist |
-| `SAVE_HITS` | `true` | Save available usernames to file |
-| `OUTPUT_FILE` | `available_usernames.txt` | Output filename |
+| `PROXY_FILE` / `PROXY_URL` | — | Proxy source |
 
 ---
 
@@ -203,72 +209,59 @@ Config:
 ```
 InstaUserCheckBot/
 ├── main.py                 # CLI entry point
-├── requirements.txt        # Python dependencies
+├── run_bot.py              # Telegram bot entry point
+├── requirements.txt
 ├── README.md
 ├── LICENSE
-├── checker/                # Core package
+├── checker/                # Core checking engine
 │   ├── __init__.py
-│   ├── config.py           # Configuration (dataclass + loaders)
-│   ├── instagram.py        # Instagram API client (CSRF, session, UA rotation)
-│   ├── telegram.py         # Telegram notification helper
+│   ├── config.py           # Configuration dataclass
+│   ├── instagram.py        # Instagram API (CSRF, session, UA rotation)
+│   ├── telegram.py         # Telegram notification helper (for CLI mode)
 │   ├── generator.py        # Username generation + wordlist loading
-│   ├── proxy.py            # Proxy manager (file/URL loading, rotation)
-│   └── core.py             # Main orchestrator (threading, stats, stop)
+│   ├── proxy.py            # Proxy manager
+│   └── core.py             # CLI orchestrator (threading, stats)
+├── bot/                    # Telegram bot interface
+│   ├── __init__.py
+│   └── handlers.py         # All /commands, callbacks, settings UI
 └── notebooks/
-    └── InstaUserCheckBot.ipynb  # Colab notebook (uses checker package)
+    └── InstaUserCheckBot.ipynb  # Colab notebook
 ```
 
 ---
 
 ## 🌐 Proxy Support
 
-Proxies should be one per line in plain text:
-
+One proxy per line:
 ```
 http://user:pass@host:port
 http://host:port
 socks5://host:port
 ```
 
-Load from file:
-```bash
-python main.py --proxy-file proxies.txt
-```
-
-Load from URL:
-```bash
-python main.py --proxy-url https://example.com/proxies.txt
-```
+CLI: `--proxy-file proxies.txt` or `--proxy-url https://...`
+Bot: Configure via environment variables before starting.
 
 > ⚠️ Free proxies are unreliable. Use private/residential proxies for serious hunting.
 
 ---
 
-## 🆘 Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| "Failed to fetch CSRF" | Instagram blocking the IP. Enable proxies. |
-| Rate limited immediately | Increase `--delay`, reduce `--workers`, use proxies. |
-| Telegram not arriving | Check token and chat ID. Start a chat with the bot first. |
-| Wordlist not loading | Check file path/URL. File must be `.txt` with one username per line. |
-| Script stops unexpectedly | Check `--mode`. `count` and `hits` modes stop automatically. |
-
----
-
 ## ❓ FAQ
 
-### Is this legal?
-Checking username availability via Instagram's public endpoints is not illegal. However, aggressive automation may violate Instagram's ToS. Use responsibly.
+### How do I create a Telegram bot?
+1. Message [@BotFather](https://t.me/BotFather) on Telegram
+2. Send `/newbot`, choose a name and username
+3. Copy the token — that's your `TELEGRAM_BOT_TOKEN`
+
+### How do I get my Chat ID?
+1. Message [@userinfobot](https://t.me/userinfobot) on Telegram
+2. It replies with your ID — that's your `TELEGRAM_CHAT_ID`
 
 ### How many usernames per hour?
-With 10 threads and 0.5s delay: ~72,000/hour theoretical. In practice, rate limits kick in without proxies. With good proxies: thousands per hour.
+~72,000 theoretical (10 threads, 0.5s delay). Rate limits reduce this without proxies.
 
-### Can I run on my own PC?
-Yes! `pip install requests` and run `python main.py`. No Colab needed.
-
-### How do I stop?
-Press `Ctrl+C`. The script handles it gracefully and prints a summary.
+### Can I run both CLI and bot?
+Yes! They're independent. CLI sends alerts to your Telegram chat. Bot runs as a Telegram bot.
 
 ---
 
