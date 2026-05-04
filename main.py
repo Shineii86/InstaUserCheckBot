@@ -10,7 +10,8 @@ Usage:
 
 Environment variables:
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, USERNAME_LENGTH, CHARACTER_SET,
-    MODE, MAX_ATTEMPTS, STOP_AFTER_HITS, MAX_WORKERS, DELAY,
+    GENERATION_MODE, USE_PATTERN, PATTERN, MODE, MAX_ATTEMPTS, STOP_AFTER_HITS,
+    MAX_WORKERS, DELAY, MAX_RETRIES, RETRY_BACKOFF_BASE, AUTO_ADJUST_DELAY,
     USE_PROXIES, PROXY_FILE, PROXY_URL, USE_WORDLIST, WORDLIST_PATH,
     WORDLIST_URL, SAVE_HITS, OUTPUT_FILE
 """
@@ -22,21 +23,33 @@ from checker.config import Config
 from checker.core import Checker
 
 
+BANNER = """
+\033[2;36m══════════════════════════════════════════════════
+  📸 InstaUserCheckBot v3.0 — CLI Mode
+══════════════════════════════════════════════════\033[0m
+"""
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="🔍 Instagram Username Availability Checker",
+        description="📸 Instagram Username Availability Checker",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     # Telegram
-    parser.add_argument("--token", "-t", help="Telegram Bot Token")
-    parser.add_argument("--chat-id", "-c", help="Telegram Chat ID")
+    parser.add_argument("--token", "-t", help="Telegram Bot Token (for notifications)")
+    parser.add_argument("--chat-id", "-c", help="Telegram Chat ID (for notifications)")
 
     # Username generation
     parser.add_argument("--length", "-l", type=int, default=5, help="Username length (default: 5)")
     parser.add_argument("--chars", help="Character set for generation")
     parser.add_argument("--no-start-dot", action="store_true", help="Avoid usernames starting with dot")
     parser.add_argument("--no-end-dot", action="store_true", help="Avoid usernames ending with dot")
+
+    # Generation mode
+    parser.add_argument("--gen-mode", choices=["random", "word_combo", "mixed"],
+                        help="Generation strategy (default: random)")
+    parser.add_argument("--pattern", help="Pattern template: ?=letter #=digit !=alnum _=underscore")
 
     # Wordlist
     parser.add_argument("--wordlist", "-w", help="Path to username wordlist file")
@@ -90,6 +103,11 @@ def build_config(args) -> Config:
         cfg.avoid_start_dot = False
     if args.no_end_dot:
         cfg.avoid_end_dot = False
+    if args.gen_mode:
+        cfg.generation_mode = args.gen_mode
+    if args.pattern:
+        cfg.use_pattern = True
+        cfg.pattern = args.pattern
     if args.wordlist:
         cfg.use_wordlist = True
         cfg.wordlist_path = args.wordlist
@@ -127,14 +145,24 @@ def build_config(args) -> Config:
 
 
 def main():
+    print(BANNER)
     args = parse_args()
     config = build_config(args)
+
+    # Validate pattern if provided
+    if config.use_pattern:
+        from checker.generator import UsernameGenerator
+        err = UsernameGenerator.validate_pattern(config.pattern)
+        if err:
+            print(f"\033[1;31m❌ Invalid pattern: {err}\033[0m", file=sys.stderr)
+            print(f"\033[2m   Example: --pattern 'user_????' or --pattern 'test_##'\033[0m", file=sys.stderr)
+            sys.exit(1)
 
     # Validate
     errors = config.validate()
     if errors:
         for e in errors:
-            print(f"❌ {e}", file=sys.stderr)
+            print(f"\033[1;31m❌ {e}\033[0m", file=sys.stderr)
         sys.exit(1)
 
     checker = Checker(config)
