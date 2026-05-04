@@ -244,6 +244,7 @@
     .badge-avail { background: rgba(34,197,94,0.15); color: var(--success); }
     .badge-taken { background: rgba(239,68,68,0.15); color: var(--danger); }
     .badge-invalid { background: rgba(245,158,11,0.15); color: var(--warning); }
+    .badge-rate { background: rgba(245,158,11,0.15); color: var(--warning); }
     .badge-error { background: rgba(158,158,158,0.15); color: var(--hint); }
 
     /* ── Summary Cards ── */
@@ -719,28 +720,83 @@ function validateUsername(u) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// CHECK AVAILABILITY (via Instagram API — proxied through bot)
+// CHECK AVAILABILITY
 // ══════════════════════════════════════════════════════════════
+// Instagram requires CSRF tokens + POST to signup endpoint —
+// this can't be done from the browser. Two strategies:
+//   1. In Telegram WebApp: send username to bot via tg.sendData(),
+//      bot checks server-side and responds in chat.
+//   2. Standalone: try GET instagram.com/{username} via CORS proxy,
+//      detect "page not found" vs profile data (less reliable).
+
 async function checkAvailability(username, signal) {
-  // Instagram requires CSRF tokens — send to bot for server-side checking
-  // The bot will respond via web_app_data or we simulate locally
+  const MAX_RETRIES = 3;
+  const BASE_BACKOFF = 2000;
+
+  // Pre-validate
+  if (!username || username.length < 1 || username.length > 30) return 'invalid';
+  if (/\s/.test(username)) return 'invalid';
+
+  // Strategy 1: Telegram WebApp — delegate to bot
   if (tg?.initDataUnsafe?.user) {
-    // In WebApp context: send to bot and let it handle
     tg.sendData(JSON.stringify({ action: 'check', username, timestamp: Date.now() }));
     return 'pending';
   }
-  // Fallback: try scraping instagram.com (may be blocked by CORS)
-  try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.instagram.com/' + username + '/')}`;
-    const resp = await fetch(proxyUrl, { signal: signal || AbortSignal.timeout(12000) });
-    if (!resp.ok) return 'error';
-    const html = await resp.text();
-    if (html.includes('"status":"ok"') || html.includes('edge_followed_by')) return 'taken';
-    if (html.includes('Page Not Found') || html.includes('Sorry, this page')) return 'available';
-    return 'taken'; // default to taken if page exists
-  } catch (e) {
-    return 'error';
+
+  // Strategy 2: Standalone — scrape instagram.com via CORS proxy
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.instagram.com/' + username + '/?__a=1&__d=dis')}`;
+      const resp = await fetch(proxyUrl, { signal: signal || AbortSignal.timeout(15000) });
+
+      if (resp.status === 429) {
+        if (attempt < MAX_RETRIES - 1) {
+          const backoff = BASE_BACKOFF * Math.pow(2, attempt) + Math.random() * 500;
+          await new Promise(r => setTimeout(r, backoff));
+          continue;
+        }
+        return 'rate_limited';
+      }
+
+      if (resp.status === 404) return 'available';
+      if (!resp.ok) {
+        // Try HTML fallback
+        const htmlUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.instagram.com/' + username + '/')}`;
+        const htmlResp = await fetch(htmlUrl, { signal: signal || AbortSignal.timeout(15000) });
+        if (!htmlResp.ok) return 'error';
+        const html = await htmlResp.text();
+
+        // Instagram shows "Sorry, this page isn't available" for missing users
+        if (html.includes("Sorry, this page") || html.includes("page isn&#39;t available"))
+          return 'available';
+        // Profile data indicators
+        if (html.includes('"profilePage_') || html.includes('edge_followedby') ||
+            html.includes('"fullName"') || html.includes('"biography"'))
+          return 'taken';
+        return 'taken'; // default: page exists → taken
+      }
+
+      const text = await resp.text();
+      try {
+        const data = JSON.parse(text);
+        if (data?.graphql?.user) return 'taken';
+        if (data?.status === 'fail') return 'available';
+      } catch {
+        // Not JSON — treat as taken (page exists)
+      }
+      return 'taken';
+
+    } catch (e) {
+      if (e.name === 'AbortError') return 'error';
+      if (attempt < MAX_RETRIES - 1) {
+        const backoff = BASE_BACKOFF * Math.pow(2, attempt) + Math.random() * 500;
+        await new Promise(r => setTimeout(r, backoff));
+        continue;
+      }
+      return 'error';
+    }
   }
+  return 'error';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -751,6 +807,7 @@ function recordStat(status) {
   if (status === 'available') stats.hits++;
   else if (status === 'taken') stats.taken++;
   else if (status === 'invalid') stats.invalid++;
+  else if (status === 'rate_limited') { if (!stats.rate_limited) stats.rate_limited = 0; stats.rate_limited++; }
   else stats.errors++;
   saveJSON('stats', stats);
 }
@@ -839,6 +896,7 @@ function showSingleResult(username, status) {
     available: { icon: '🎉', text: 'AVAILABLE!', color: 'var(--success)', sub: `@${username} is available — claim it now!` },
     taken:     { icon: '❌', text: 'Taken',      color: 'var(--danger)',  sub: `@${username} is already registered` },
     invalid:   { icon: '🚫', text: 'Invalid',    color: 'var(--warning)', sub: `@${username} is not a valid username` },
+    rate_limited: { icon: '⚠️', text: 'Rate Limited', color: 'var(--warning)', sub: 'Instagram is blocking requests — try again later' },
     pending:   { icon: '⏳', text: 'Checking...', color: 'var(--btn)',    sub: `Sent to bot — result will appear in chat` },
     error:     { icon: '⚠️', text: 'Error',       color: 'var(--hint)',    sub: 'Could not check — try again' },
   }[status] || { icon: '⚠️', text: 'Error', color: 'var(--hint)', sub: 'Unknown error' };
@@ -974,8 +1032,8 @@ async function doBatchCheck() {
 
   html += '<div class="results-list">';
   for (const r of sorted) {
-    const badgeClass = { available: 'badge-avail', taken: 'badge-taken', invalid: 'badge-invalid', error: 'badge-error' }[r.status] || 'badge-error';
-    const label = { available: 'Available', taken: 'Taken', invalid: 'Invalid', error: 'Error' }[r.status] || 'Error';
+    const badgeClass = { available: 'badge-avail', taken: 'badge-taken', invalid: 'badge-invalid', rate_limited: 'badge-rate', error: 'badge-error' }[r.status] || 'badge-error';
+    const label = { available: 'Available', taken: 'Taken', invalid: 'Invalid', rate_limited: 'Rate Limited', error: 'Error' }[r.status] || 'Error';
     html += `<div class="result-item">
       <span class="ri-name">@${r.name}</span>
       <span class="ri-actions">
@@ -1247,8 +1305,8 @@ function renderBatchResults(container, results, done, hits, taken, errs, elapsed
 
   html += '<div class="results-list">';
   for (const r of sorted) {
-    const badgeClass = { available: 'badge-avail', taken: 'badge-taken', invalid: 'badge-invalid', error: 'badge-error' }[r.status] || 'badge-error';
-    const label = { available: 'Available', taken: 'Taken', invalid: 'Invalid', error: 'Error' }[r.status] || 'Error';
+    const badgeClass = { available: 'badge-avail', taken: 'badge-taken', invalid: 'badge-invalid', rate_limited: 'badge-rate', error: 'badge-error' }[r.status] || 'badge-error';
+    const label = { available: 'Available', taken: 'Taken', invalid: 'Invalid', rate_limited: 'Rate Limited', error: 'Error' }[r.status] || 'Error';
     html += `<div class="result-item">
       <span class="ri-name">@${r.name}</span>
       <span class="ri-actions">
@@ -1273,8 +1331,8 @@ function renderHistoryPage() {
 
   let html = '<div class="history-list">';
   for (const h of history.slice(0, 50)) {
-    const badgeClass = { available: 'badge-avail', taken: 'badge-taken', invalid: 'badge-invalid', error: 'badge-error' }[h.status] || 'badge-error';
-    const label = { available: 'Available', taken: 'Taken', invalid: 'Invalid', error: 'Error' }[h.status] || 'Error';
+    const badgeClass = { available: 'badge-avail', taken: 'badge-taken', invalid: 'badge-invalid', rate_limited: 'badge-rate', error: 'badge-error' }[h.status] || 'badge-error';
+    const label = { available: 'Available', taken: 'Taken', invalid: 'Invalid', rate_limited: 'Rate Limited', error: 'Error' }[h.status] || 'Error';
     const ago = getTimeAgo(h.time);
     html += `<div class="history-item">
       <span class="hi-name">@${h.username}</span>
